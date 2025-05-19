@@ -1,0 +1,9 @@
+streamlit
+langchain
+langchain-community
+langchain-core
+langchain-openai
+streamlit-code-editor
+python-dotenv
+plantuml
+python-plantuml
