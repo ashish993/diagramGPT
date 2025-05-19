@@ -35,33 +35,40 @@ except Exception as e:
 output_parser = StrOutputParser()
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a solution architecture expert with over 15 years of experience working with AWS Web Services"),
+    ("system", "You are a solution architecture expert with over 15 years of experience working with both AWS and Azure cloud services. You excel at creating detailed architecture diagrams using advanced visualization techniques including clusters, directional flows, and edge styling."),
     ("user", '''
 # CHARACTER
 You have the following skills {{SKILLS}}, and your answer should adhere to the constraints {{CONSTRAINTS}}. Based on the following user input, choose the corresponding {{SKILLS}} and process it. Keep your answer as simple as possible.
 User input: {user_request}
 
 # SKILLS
-## SKILL 1: Converting the user's workflow into a Diagram if the user provides a workflow description, e.g., A -> B.
+## SKILL 1: Converting the user's workflow into a Diagram
 Steps:
-- Map components in the workflow to corresponding components in the AWS Solution Stack.
-- Clean and correct the workflow appropriately.
-- Create a Diagram from the refined workflow.
-- Focus on the final result, don't need to show immediate thinking steps
+- Detect if the user is asking about Azure or AWS based on their input
+- Map components in the workflow to corresponding components in the appropriate cloud provider's stack
+- Organize related components into clusters when appropriate
+- Use appropriate node connections (>>, <<, -) to show data flow direction
+- Use edges with labels and styling where needed to clarify relationships
+- Focus on creating clear and visually appealing diagrams
 Response Format:
 - The response must follow the TYPE1 format
 
-## SKILL 2: Finding and advising a solution based on the user's needs if the user needs a solution to resolve a specific requirement
+## SKILL 2: Finding and advising a solution based on the user's needs
 Steps:
-- Think step-by-step to provide the best solution, using AWS Services, to meet the user's needs. The approach should be briefly outlined in bullet points along with an end-to-end process.
-- Create a Diagram from the process
+- Detect if the user is asking about Azure or AWS based on their input
+- Think step-by-step to provide the best solution using the appropriate cloud provider's services
+- Group related services into logical clusters
+- Show data flow between services using appropriate directional operators
+- Use edge styling to indicate different types of connections (e.g., sync vs async)
 - Focus on the final result, don't need to show immediate thinking steps
 Response Format:
 - The response must follow the TYPE2 format.
 
-## SKILL 3: Show how to use any AWS service if the user needs to find helpful information about an AWS service.
+## SKILL 3: Show how to use specific cloud services
 Steps:
-- Show the best practices of the service along with a useful sample workflow.
+- Show the best practices of the service along with a useful sample workflow
+- Use clusters to group related components
+- Use edge labels to describe interactions between services
 Response Format:
 - The response must follow the TYPE2 format.
 
@@ -74,31 +81,58 @@ Response Format:
 - Short explanation and conclusion with the Python code at the bottom.
 
 ## CONSTRAINT 3: Diagram creation method
-- Use the Python diagram library to create the code.
-- Use correct imports from the diagrams library, e.g., from diagrams.aws.mobile import Mobile
-- Always import the needed components directly from their modules
-- Never use >> operator between components, use - instead
-- To avoid errors related to incorrect class imports, always refer to the list: {aws_knowledge}.
+- Use the Python diagram library to create the code
+- Choose imports based on the cloud provider (diagrams.aws.* for AWS, diagrams.azure.* for Azure)
+- Always import needed components directly from their modules
+- Make use of Cluster class to group related components
+- Use appropriate flow operators:
+  * >> for left to right flow
+  * << for right to left flow
+  * - for undirected connections
+- Use Edge class with labels and styling where appropriate
+- Support diagram direction options (TB, BT, LR, RL)
+- Group similar nodes into lists for cleaner connections
+- To avoid errors related to incorrect class imports, refer to:
+  - For AWS services: {aws_knowledge}
+  - For Azure services: {azure_knowledge}
 - The generated code should only create the diagram, do not include any Streamlit display code.
 
 EXAMPLE
 ```python
-from diagrams import Diagram
-from diagrams.aws.mobile import Mobile
-from diagrams.aws.database import RDS
+from diagrams import Cluster, Diagram, Edge
+from diagrams.azure.compute import AppServices  # or diagrams.aws.compute.EC2 for AWS
+from diagrams.azure.database import SQLDatabases  # or diagrams.aws.database.RDS for AWS
+from diagrams.azure.network import LoadBalancers
 
 # Create the diagram using `diagrams` lib
-with Diagram("My Diagram", show=False, filename="diagram_temp"):
-    mobile = Mobile("Mobile App")
-    db = RDS("Database")
-    mobile - db  # Use - operator, not >>
+with Diagram("Web Application", show=False, filename="diagram_temp"):
+    lb = LoadBalancers("Load Balancer")
+    
+    with Cluster("Application Tier"):
+        apps = [
+            AppServices("App 1"),
+            AppServices("App 2"),
+            AppServices("App 3")
+        ]
+    
+    with Cluster("Database Tier"):
+        primary = SQLDatabases("Primary")
+        replica = SQLDatabases("Replica")
+        primary - Edge(color="brown", style="dashed") - replica
+
+    lb >> apps >> primary
 ```
 
 '''
     )])
 
-loader = TextLoader('aws.knowledge')
-aws_knowledge = loader.load()[0].page_content
+# Load cloud service knowledge
+loader_aws = TextLoader('aws.knowledge')
+aws_knowledge = loader_aws.load()[0].page_content
+
+loader_azure = TextLoader('azure.knowledge')
+azure_knowledge = loader_azure.load()[0].page_content
+
 chain = prompt | llm | output_parser
 
 # ============== MANAGE SESSION STATE ========================
@@ -112,7 +146,7 @@ if "response" not in st.session_state:
 # @st.cache_data
 def invoke(user_request):
     """Call chatgpt to process user input, store the response in cache memory"""
-    response = chain.invoke({"aws_knowledge": aws_knowledge, "user_request": user_request})
+    response = chain.invoke({"aws_knowledge": aws_knowledge, "azure_knowledge": azure_knowledge, "user_request": user_request})
     return response
 
 def extract_main_content(text):
