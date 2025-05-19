@@ -7,3 +7,4 @@ streamlit-code-editor
 python-dotenv
 plantuml
 diagrams
+graphviz
