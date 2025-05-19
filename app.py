@@ -79,11 +79,10 @@ Response Format:
 - Always import the needed components directly from their modules
 - Never use >> operator between components, use - instead
 - To avoid errors related to incorrect class imports, always refer to the list: {aws_knowledge}.
-- The generated code snippet must combine Streamlit to display the diagram (learned how to use Streamlit from the {{EXAMPLE}} below).
+- The generated code should only create the diagram, do not include any Streamlit display code.
 
 EXAMPLE
 ```python
-import streamlit as st
 from diagrams import Diagram
 from diagrams.aws.mobile import Mobile
 from diagrams.aws.database import RDS
@@ -93,13 +92,10 @@ with Diagram("My Diagram", show=False, filename="diagram_temp"):
     mobile = Mobile("Mobile App")
     db = RDS("Database")
     mobile - db  # Use - operator, not >>
-    
-# Using Streamlit to show image
-st.image("diagram_temp.png", caption="My Generated Diagram")
 ```
 
 '''
-)])
+    )])
 
 loader = TextLoader('aws.knowledge')
 aws_knowledge = loader.load()[0].page_content
@@ -176,23 +172,17 @@ def main_page():
 
     code = st.session_state.current_code
     if code is not None:
-        col1, col2 = st.columns([5,5])
-        with col1:
-            st.write(extract_main_content(st.session_state.response))
-            response_dict = code_editor(code, lang="python", buttons=btn_settings_editor_btns)
-        with col2:
-            code_string = response_dict["text"]
-            if response_dict["type"] == "submit" and len(code_string) != 0:
-                try:
-                    # For debugging
-                    st.write("Generated code:")
-                    st.code(code_string)
-                    exec(code_string)
-                except Exception as e:
-                    st.error(f"Error executing code: {str(e)}")
-                    st.write("Error details:", e.__class__.__name__)
-                    import traceback
-                    st.write("Traceback:", traceback.format_exc())
+        try:
+            # Remove any st.image calls from the generated code
+            code = code.replace('st.image("diagram_temp.png")', '').replace("st.image('diagram_temp.png')", '')
+            
+            # Execute the code silently to generate the diagram
+            exec(code)
+            
+            # Display the diagram
+            st.image("diagram_temp.png")
+        except Exception as e:
+            st.error(f"Error generating diagram: {str(e)}")
 
 
 if __name__ == '__main__':
